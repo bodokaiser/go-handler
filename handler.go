@@ -1,3 +1,4 @@
+// The handler package provides common http.Handler for use in HTTP APIs.
 package handler
 
 import (
