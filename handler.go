@@ -17,8 +17,8 @@ type Handler interface {
 	Handle(http.Handler) http.Handler
 }
 
-// Auth is a http.Handler which secures a http handler from  requests which do
-// not have valid http basic authorization.
+// Auth implements http.Handler and only calls another http.Handler when
+// requests have valid credentials defined by http basic authorization.
 type Auth struct {
 	Error    error
 	Username string
@@ -29,16 +29,19 @@ type Auth struct {
 // Default HTTP Basic realm to use.
 var DefaultRealm = "secure"
 
-func (a *Auth) Handle(h http.Handler) http.Handler {
-	a.Handler = h
+// Defines the http.Handler to secure.
+// Returns the top level http.Handler for easy chaining.
+func (a *Auth) Handle(handler http.Handler) http.Handler {
+	a.Handler = handler
 
 	return a
 }
 
-func (a *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// Implementation of http.Handler interface. Contains the HTTP Basic logic.
+func (a *Auth) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	c := &context.Context{
-		Request:  r,
-		Response: w,
+		Request:  request,
+		Response: writer,
 	}
 	h := c.Get("Authorization")
 
@@ -47,7 +50,7 @@ func (a *Auth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if base64.StdEncoding.EncodeToString(b) == h[i+1:] {
 			if a.Handler != nil {
-				a.Handler.ServeHTTP(w, r)
+				a.Handler.ServeHTTP(writer, request)
 			}
 
 			return
@@ -63,16 +66,19 @@ type Logger struct {
 	Handler http.Handler
 }
 
-func (l *Logger) Handle(h http.Handler) http.Handler {
-	l.Handler = h
+// Defines the http.Handler to log.
+// Returns the top level http.Handler for easy chaining.
+func (l *Logger) Handle(handler http.Handler) http.Handler {
+	l.Handler = handler
 
 	return l
 }
 
-func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s", r.Method, r.URL.String())
+// Implementation of the logger algorithm.
+func (l *Logger) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	log.Printf("%s %s", request.Method, request.URL.String())
 
-	l.Handler.ServeHTTP(w, r)
+	l.Handler.ServeHTTP(writer, request)
 }
 
 // NotFound will send a context conform NotFound response.

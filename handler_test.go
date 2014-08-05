@@ -9,65 +9,67 @@ import (
 	"gopkg.in/check.v1"
 )
 
-var (
-	ErrTest = errors.New("a test error")
-)
-
 func TestHandler(t *testing.T) {
-	check.Suite(&HandlerSuite{
-		Auth: &Auth{
-			Username: "foo",
-			Password: "bar",
-			Handler:  Hello(),
-		},
-		Logger: &Logger{
-			Handler: Hello(),
-		},
-	})
+	check.Suite(&Suite{})
 	check.TestingT(t)
 }
 
-type HandlerSuite struct {
-	Auth   *Auth
-	Logger *Logger
+type Suite struct {
+	auth   *Auth
+	logger *Logger
 }
 
-func (s *HandlerSuite) TestAuth(c *check.C) {
-	var req *http.Request
-	var res *httptest.ResponseRecorder
+var ErrTest = errors.New("a test error")
 
-	res = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/", nil)
-	req.SetBasicAuth("foo", "bar")
-	s.Auth.ServeHTTP(res, req)
-	c.Check(res.Code, check.Equals, http.StatusOK)
-	c.Check(res.Body.String(), check.Equals, "Hello World")
-
-	res = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/", nil)
-	req.SetBasicAuth("foo", "baz")
-	s.Auth.ServeHTTP(res, req)
-	c.Check(res.Code, check.Equals, http.StatusUnauthorized)
-
-	res = httptest.NewRecorder()
-	req, _ = http.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Basic ")
-	s.Auth.ServeHTTP(res, req)
-	c.Check(res.Code, check.Equals, http.StatusUnauthorized)
+func (s *Suite) SetUpSuite(c *check.C) {
+	s.auth = &Auth{
+		Username: "foo",
+		Password: "bar",
+		Handler:  Hello(),
+	}
+	s.logger = &Logger{
+		Handler: Hello(),
+	}
 }
 
-func (s *HandlerSuite) TestLogger(c *check.C) {
+func (s *Suite) TestAuth(c *check.C) {
+	res1 := httptest.NewRecorder()
+	res2 := httptest.NewRecorder()
+	res3 := httptest.NewRecorder()
+
+	req1, _ := http.NewRequest("GET", "/", nil)
+	req1.SetBasicAuth("foo", "bar")
+	req2, _ := http.NewRequest("GET", "/", nil)
+	req2.SetBasicAuth("foo", "baz")
+	req3, _ := http.NewRequest("GET", "/", nil)
+	req3.Header.Set("Authorization", "Basic ")
+
+	s.auth.ServeHTTP(res1, req1)
+	s.auth.ServeHTTP(res2, req2)
+	s.auth.ServeHTTP(res3, req3)
+
+	c.Check(res1.Code, check.Equals, http.StatusOK)
+	c.Check(res2.Code, check.Equals, http.StatusUnauthorized)
+	c.Check(res3.Code, check.Equals, http.StatusUnauthorized)
+	c.Check(res1.Body.String(), check.Equals, "Hello World")
+}
+
+func (s *Suite) TestLogger(c *check.C) {
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/bla", nil)
-	s.Logger.ServeHTTP(res, req)
+
+	s.logger.ServeHTTP(res, req)
+
 	c.Check(res.Code, check.Equals, http.StatusOK)
 	c.Check(res.Body.String(), check.Equals, "Hello World")
 }
 
-func (s *HandlerSuite) TestNotFound(c *check.C) {
+func (s *Suite) TestNotFound(c *check.C) {
 	res := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/bla", nil)
+
 	NotFound(res, req)
+
 	c.Check(res.Code, check.Equals, http.StatusNotFound)
 	c.Check(res.Body.String(), check.Equals, "{\"error\":\"Not Found\"}\n")
 }
