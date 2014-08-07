@@ -11,74 +11,37 @@ import (
 	"github.com/satisfeet/go-context"
 )
 
-// Interface implemented by all handlers.
-type Handler interface {
-	// Handler wraps the given http.Handler.
-	Handle(http.Handler) http.Handler
-}
-
-// Auth implements http.Handler and only calls another http.Handler when
-// requests have valid credentials defined by http basic authorization.
-type Auth struct {
-	Error    error
-	Username string
-	Password string
-	Handler  http.Handler
-}
-
 // Default HTTP Basic realm to use.
 var DefaultRealm = "secure"
 
-// Defines the http.Handler to secure.
-// Returns the top level http.Handler for easy chaining.
-func (a *Auth) Handle(handler http.Handler) http.Handler {
-	a.Handler = handler
+// Returns a http handler where each request is authenticated using HTTP Basic.
+func Auth(username, password string, handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c := &context.Context{Request: r, Response: w}
+		h := c.Get("Authorization")
 
-	return a
-}
+		if i := strings.IndexRune(h, ' '); i != -1 {
+			b := []byte(username + ":" + password)
 
-// Implementation of http.Handler interface. Contains the HTTP Basic logic.
-func (a *Auth) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	c := &context.Context{
-		Request:  request,
-		Response: writer,
-	}
-	h := c.Get("Authorization")
+			if base64.StdEncoding.EncodeToString(b) == h[i+1:] {
+				handler.ServeHTTP(w, r)
 
-	if i := strings.IndexRune(h, ' '); i != -1 {
-		b := []byte(a.Username + ":" + a.Password)
-
-		if base64.StdEncoding.EncodeToString(b) == h[i+1:] {
-			if a.Handler != nil {
-				a.Handler.ServeHTTP(writer, request)
+				return
 			}
-
-			return
 		}
-	}
 
-	c.Set("WWW-Authenticate", fmt.Sprintf("Basic realm=%s", DefaultRealm))
-	c.Error(a.Error, http.StatusUnauthorized)
+		c.Set("WWW-Authenticate", fmt.Sprintf("Basic realm=%s", DefaultRealm))
+		c.Error(nil, http.StatusUnauthorized)
+	})
 }
 
-// Logger prints method and url of each request.
-type Logger struct {
-	Handler http.Handler
-}
+// Returns http handler where each request is logged to stdout.
+func Logger(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s", r.Method, r.URL.String())
 
-// Defines the http.Handler to log.
-// Returns the top level http.Handler for easy chaining.
-func (l *Logger) Handle(handler http.Handler) http.Handler {
-	l.Handler = handler
-
-	return l
-}
-
-// Implementation of the logger algorithm.
-func (l *Logger) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	log.Printf("%s %s", request.Method, request.URL.String())
-
-	l.Handler.ServeHTTP(writer, request)
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // NotFound will send a context conform NotFound response.

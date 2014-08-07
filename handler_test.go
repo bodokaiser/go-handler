@@ -15,21 +15,15 @@ func TestHandler(t *testing.T) {
 }
 
 type Suite struct {
-	auth   *Auth
-	logger *Logger
+	auth   http.Handler
+	logger http.Handler
 }
 
 var ErrTest = errors.New("a test error")
 
 func (s *Suite) SetUpSuite(c *check.C) {
-	s.auth = &Auth{
-		Username: "foo",
-		Password: "bar",
-		Handler:  Hello(),
-	}
-	s.logger = &Logger{
-		Handler: Hello(),
-	}
+	s.auth = Auth("foo", "bar", Hello())
+	s.logger = Logger(Hello())
 }
 
 func (s *Suite) TestAuth(c *check.C) {
