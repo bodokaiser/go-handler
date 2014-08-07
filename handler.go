@@ -15,15 +15,15 @@ import (
 var DefaultRealm = "secure"
 
 // Returns a http handler where each request is authenticated using HTTP Basic.
-func Auth(username, password string, handler http.Handler) http.Handler {
+func Auth(auth string, handler http.Handler) http.Handler {
+	b := base64.StdEncoding.EncodeToString([]byte(auth))
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := &context.Context{Request: r, Response: w}
 		h := c.Get("Authorization")
 
 		if i := strings.IndexRune(h, ' '); i != -1 {
-			b := []byte(username + ":" + password)
-
-			if base64.StdEncoding.EncodeToString(b) == h[i+1:] {
+			if b == h[i+1:] {
 				handler.ServeHTTP(w, r)
 
 				return

@@ -22,7 +22,7 @@ type Suite struct {
 var ErrTest = errors.New("a test error")
 
 func (s *Suite) SetUpSuite(c *check.C) {
-	s.auth = Auth("foo", "bar", Hello())
+	s.auth = Auth("foo:bar", Hello())
 	s.logger = Logger(Hello())
 }
 
